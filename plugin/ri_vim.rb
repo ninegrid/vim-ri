@@ -2,7 +2,7 @@
 # Modified by Daniel Choi <dhchoi@gmail.com>
 # Modified the RDocRI::Driver class from the original RDoc gem for rdoc_vim gem
 
-gem 'rdoc', '=> 3.8'
+gem 'rdoc', '>=3.8'
 require 'abbrev'
 require 'optparse'
 begin
@@ -89,7 +89,6 @@ class RIVim
   # Adds "(from ...)" to +out+ for +store+
   def add_from out, store
     out << RDoc::Markup::Paragraph.new("(from #{store.friendly_path})")
-    #out << RDoc::Markup::Paragraph.new("(from #{store.path})")
   end
 
   # Adds +includes+ to +out+
@@ -195,7 +194,7 @@ class RIVim
         klasses  << klass
         includes << [klass.includes, store] if klass.includes
         [store, klass]
-      rescue Errno::ENOENT
+      rescue # Errno::ENOENT
       end
     end.compact
     return if found.empty?
@@ -281,7 +280,9 @@ class RIVim
   # Outputs formatted RI data for the class or method +name+.
   def display_name name
     return true if display_class name
-    display_method name
+    #if name =~ /::|#|\./
+      display_method name
+    #end
     true
   end
 
@@ -293,21 +294,7 @@ class RIVim
       #longest_method = xs.inject("") {|memo, x| x[0].size > memo.size ? x[0] : memo }
       #matches = xs.map {|x| "%-#{longest_method.size}s %s%s" % [x[0], x[1], x[2]] }
     end
-    if matches.empty?
-      #matches = classes.keys.grep(/^#{name}/)
-      matches = classes.select {|k, v| k =~ /^#{name}/ }.
-        map {|k, v|
-          store = v.first
-          klass = store.load_class k
-          has_comment = !klass.comment.empty?
-          if has_comment
-            # put indicator of parts size
-            "#{k} (#{klass.comment.parts.size})"
-          else
-            k.to_s
-          end
-        }
-    end
+    matches = matches.concat classes.select {|k, v| k =~ /^#{name}/ }.map {|k, v| k.to_s }
     puts matches.sort.join("\n")
   end
 
@@ -456,12 +443,13 @@ class RIVim
         klasses  << klass
         includes << [klass.includes, store] if klass.includes
         [store, klass]
-      rescue Errno::ENOENT
+      rescue #Errno::ENOENT <-just eat this one?
       end
     end.compact
     return if found.empty?
     includes.reject! do |modules,| modules.empty? end
     found.each do |store, klass|
+      comment = klass.comment
       class_methods    = store.class_methods[klass.full_name]
       instance_methods = store.instance_methods[klass.full_name]
       add_to_method_dropdown name, store, class_methods,    'Class methods'
@@ -484,7 +472,7 @@ class RIVim
         if bsize > 0
           size = " (#{bsize})"
         end
-      rescue Errno::ENOENT
+      rescue #Errno::ENOENT
         puts $!
       end
       if name == 'Class methods'
@@ -493,7 +481,6 @@ class RIVim
         method = "##{method}#{size}"
       end
       puts method
-      #out << RDoc::Markup::IndentedParagraph.new(2, methods.join(', '))
     end
   end
 
@@ -596,7 +583,6 @@ class RIVim
         ri.open_readme gem
       elsif ARGV.first == '-d' # exact match
         ri.display_name ARGV[1]
-
       elsif ARGV.first == '-m'  # class methods
         ri.display_class_symbols ARGV[1]
       elsif ARGV.first =~ /^[^A-Z]/
